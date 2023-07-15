@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+  </head>
+
+  <body>
+    <div>
+      <canvas id="canvasRef" width="100" height="100"></canvas>
+      <input id="file-input" type="file" accept="image/*" />
+    </div>
+
+    <script>
+      const canvasRef = document.getElementById('canvasRef');
+      const fileInput = document.getElementById('file-input');
+      fileInput.addEventListener('change', handleFileUpload);
+      function handleFileUpload (event) {
+        console.log(event.target.files[0]);
+        const canvas = canvasRef;
+        const context = canvas.getContext('2d');
+        const img = new Image();
+        img.onload = () => {
+          context.drawImage(img, 0, 0, 100, 100);
+
+          // Read content
+          const imageData = context.getImageData(0, 0, canvas.width, canvas.height, {
+            colorSpace: 'srgb',
+          });
+          const pixels = imageData.data;
+          const rgbValues = [];
+          for (let y = 0; y < canvas.height; y++) {
+            for (let x = 0; x < canvas.width; x++) {
+              const i = (y * canvas.width + x) * 4;
+              const red = pixels[i];
+              const green = pixels[i + 1];
+              const blue = pixels[i + 2];
+              rgbValues.push({x, y, red, green, blue});
+            }
+          }
+          console.log(rgbValues);
+
+          // Change black to white
+          /*for (let i = 0; i < pixels.length; i += 4) {
+            const red = pixels[i];
+            const green = pixels[i + 1];
+            const blue = pixels[i + 2];
+            if (red === 0 && green === 0 && blue === 0) {
+              pixels[i] = 255;
+              pixels[i + 1] = 255;
+              pixels[i + 2] = 255;
+            }
+          }
+          context.putImageData(imageData, 0, 0);*/
+
+        };
+        img.src = URL.createObjectURL(event.target.files[0]);
+      }
+    </script>
+  </body>
+
+</html>
