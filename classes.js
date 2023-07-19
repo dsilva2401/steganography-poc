@@ -68,22 +68,31 @@ function byteArrayToArrayBuffer(byteArray) {
 
 class CanvasManager {
 
-  constructor ({ canvas }) {
-    this._canvasElement = canvas
+  constructor () {
+    this._canvasElement = document.createElement('canvas')
   }
 
   get canvas () {
     return this._canvasElement
   }
 
-  drawImage ({ imageUrl }) {
+  drawImage ({ imageUrl, squareSize }) {
     return new Promise((res, rej) => {
       const canvasContext = this._canvasElement.getContext('2d');
       const img = new Image();
       img.onload = () => {
-        this._canvasElement.width = 1000
-        this._canvasElement.height = 1000
-        canvasContext.drawImage(img, 0, 0, 1000, 1000);
+        const ratio = img.width / img.height
+        let buffWidth = img.width
+        let buffHeight = img.height
+        if (!!squareSize && (buffWidth * buffHeight) < squareSize) {
+          while ((buffWidth * buffHeight) < squareSize) {
+            buffWidth = buffWidth * 1.1
+            buffHeight = buffWidth / ratio
+          }
+        }
+        this._canvasElement.width = buffWidth
+        this._canvasElement.height = buffHeight
+        canvasContext.drawImage(img, 0, 0, buffWidth, buffHeight);
         res()
       };
       img.src = imageUrl
@@ -189,10 +198,7 @@ class FilesManager {
 class ImagesContentManager {
 
   constructor () {
-    const canvasElem = document.createElement('canvas')
-    this._canvasManager = new CanvasManager({
-      canvas: canvasElem
-    })
+    this._canvasManager = new CanvasManager()
   }
 
   extract3BitsGroupFromByte (byte) {
@@ -228,15 +234,16 @@ class ImagesContentManager {
   async saveFileInImage ({ imageUrl, fileData }) {
 
     // Render image in canvas
-    await this._canvasManager.drawImage({ imageUrl })
+    const canvasManager = new CanvasManager()
+    await canvasManager.drawImage({ imageUrl, squareSize: fileData.file.size+300 })
 
     // Clear image pixels
-    const imagePixels = this._canvasManager.getPixels()
+    const imagePixels = canvasManager.getPixels()
     const cleanImagePixels = imagePixels.map(p => ({ ...p, rgb: this.cleanLastBitsFromRGB(p.rgb) }))
 
     // Save size
     const fileSizeInBytes = numberToBytes(fileData.file.size)
-    const fileTypeInBytes = stringToBytes(fileData.file.type)
+    const fileTypeInBytes = stringToBytes(fileData.file.name.split('.').pop())
     let pixelCounter = 0
     for (let i=0; i<fileSizeInBytes.length; i++) {
       cleanImagePixels[pixelCounter].rgb = this.saveByteInRGB({ rgb: cleanImagePixels[pixelCounter].rgb, byte: fileSizeInBytes[i] })
@@ -291,17 +298,20 @@ class ImagesContentManager {
     cleanImagePixels[pixelCounter].rgb = this.saveByteInRGB({ rgb: cleanImagePixels[pixelCounter].rgb, byte: 11 })
 
     // Update canvas
-    this._canvasManager.updatePixels(cleanImagePixels)
+    canvasManager.updatePixels(cleanImagePixels)
 
     // Download image
-    this._canvasManager.downloadImage()
+    canvasManager.downloadImage()
   }
 
   async extractFileFromImage ({ imageUrl }) {
 
+    // Init canvas manager
+    const canvasManager = new CanvasManager()
+
     // Render image in canvas
-    await this._canvasManager.drawImage({ imageUrl })
-    const imagePixels = this._canvasManager.getPixels()
+    await canvasManager.drawImage({ imageUrl })
+    const imagePixels = canvasManager.getPixels()
 
     // Find separators indexes
     let separatorsIndexes = []
@@ -324,7 +334,7 @@ class ImagesContentManager {
     const fileManager = new FilesManager()
     fileManager.downloadFileFromBuffer({
       fileBuffer: byteArrayToArrayBuffer(fileContentBytes),
-      fileName: 'file'
+      fileName: 'file.'+fileType
     })
     
   }
