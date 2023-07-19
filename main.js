@@ -340,3 +340,46 @@ class ImagesContentManager {
   }
 
 }
+
+// Setup elements
+const downloadCanvasFileBtn = document.getElementById('download-canvas-file-btn');
+const readTestPixelValueBtn = document.getElementById('read-test-pixel-value-btn');
+const updateTestPixelValueBtn = document.getElementById('update-test-pixel-value-btn');
+const requestFileToHideBtn = document.getElementById('request-file-to-hide-btn');
+const requestImageBtn = document.getElementById('request-image-btn');
+const fileToHideName = document.getElementById('file-to-hide-name');
+const imagePreview = document.getElementById('image-preview');
+const saveAndDownloadNewImageBtn = document.getElementById('save-and-download-new-image-btn');
+const selectImageToExtractBtn = document.getElementById('select-image-to-extract-btn')
+
+// Setup variables
+let originalImageUrl
+let fileToSaveData
+
+// Initialize classes
+const filesManager = new FilesManager()
+const imagesContentManager = new ImagesContentManager()
+
+// Setup events
+requestImageBtn.addEventListener('click', async () => {
+  const { fileUrl } = await filesManager.requestFile()
+  originalImageUrl = fileUrl
+  imagePreview.src = fileUrl
+})
+requestFileToHideBtn.addEventListener('click', async () => {
+  const fileData = await filesManager.requestFile({ extractBytes: true })
+  fileToHideName.innerText = fileData.file.name
+  fileToSaveData = fileData
+})
+saveAndDownloadNewImageBtn.addEventListener('click', async () => {
+  await imagesContentManager.saveFileInImage({
+    imageUrl: originalImageUrl,
+    fileData: fileToSaveData
+  })
+})
+selectImageToExtractBtn.addEventListener('click', async () => {
+  const { fileUrl } = await filesManager.requestFile()
+  imagesContentManager.extractFileFromImage({
+    imageUrl: fileUrl
+  })
+})

@@ -12,7 +12,6 @@
     <div style="border: 1px solid black; margin-bottom: 10px;">
       <h1>Save file</h1>
       <img id="image-preview" height="100" />
-      <canvas id="canvasRef" width="100" height="100"></canvas>
       <p>File name:</p>
       <p id="file-to-hide-name"></p>
       <button id="request-image-btn">Request image</button>
@@ -25,54 +24,7 @@
       <button id="select-image-to-extract-btn">Select image</button>
     </div>
 
-    <script src="./classes.js"></script>
-    <script>
-      
-      // Setup elements
-      const canvasRef = document.getElementById('canvasRef');
-      const downloadCanvasFileBtn = document.getElementById('download-canvas-file-btn');
-      const readTestPixelValueBtn = document.getElementById('read-test-pixel-value-btn');
-      const updateTestPixelValueBtn = document.getElementById('update-test-pixel-value-btn');
-      const requestFileToHideBtn = document.getElementById('request-file-to-hide-btn');
-      const requestImageBtn = document.getElementById('request-image-btn');
-      const fileToHideName = document.getElementById('file-to-hide-name');
-      const imagePreview = document.getElementById('image-preview');
-      const saveAndDownloadNewImageBtn = document.getElementById('save-and-download-new-image-btn');
-      const selectImageToExtractBtn = document.getElementById('select-image-to-extract-btn')
-      
-      // Setup variables
-      let originalImageUrl
-      let fileToSaveData
-
-      // Initialize classes
-      const filesManager = new FilesManager()
-      const imagesContentManager = new ImagesContentManager()
-
-      // Setup events
-      requestImageBtn.addEventListener('click', async () => {
-        const { fileUrl } = await filesManager.requestFile()
-        originalImageUrl = fileUrl
-        imagePreview.src = fileUrl
-      })
-      requestFileToHideBtn.addEventListener('click', async () => {
-        const fileData = await filesManager.requestFile({ extractBytes: true })
-        fileToHideName.innerText = fileData.file.name
-        fileToSaveData = fileData
-      })
-      saveAndDownloadNewImageBtn.addEventListener('click', async () => {
-        await imagesContentManager.saveFileInImage({
-          imageUrl: originalImageUrl,
-          fileData: fileToSaveData
-        })
-      })
-      selectImageToExtractBtn.addEventListener('click', async () => {
-        const { fileUrl } = await filesManager.requestFile()
-        imagesContentManager.extractFileFromImage({
-          imageUrl: fileUrl
-        })
-      })
-
-    </script>
+    <script src="./main.js"></script>
   </body>
 
 </html>
