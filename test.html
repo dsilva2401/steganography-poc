@@ -8,6 +8,12 @@
   </head>
 
   <body>
+
+    <div>
+      <h3>Test file reader integrity</h3>
+      <button id="file-reader-upload-btn">Upload a file</button>
+    </div>
+
     <script src="./main.js"></script>
     <script>
 
@@ -57,6 +63,28 @@
       console.log('imagesContentManager.saveByteInRGB => ok')
       console.log('imagesContentManager.getByteFromRGB => ok')
 
+      // File reader integrity
+      const filesManager = new FilesManager()
+      const fileReaderBtn = document.getElementById('file-reader-upload-btn')
+      let buffBytes
+      fileReaderBtn.addEventListener('click', async () => {
+        const { bytes } = await filesManager.requestFile({ extractBytes: true })
+        if (buffBytes) {
+          bytesForStr = bytes
+          buffBytesForStr = buffBytes
+          if (bytesForStr.length%1) { bytesForStr.pop() }
+          if (buffBytesForStr.length%1) { buffBytesForStr.pop() }
+          const bytesStr = bytesToString(bytesForStr)
+          const buffBytesStr = bytesToString(buffBytesForStr)
+          if (bytesStr != buffBytesStr) { throw new Error('filesManager.requestFile => error') }
+          console.log('filesManager.requestFile => ok')
+          fileReaderBtn.innerText = 'Upload a new file'
+          buffBytes = null
+          return
+        }
+        buffBytes = bytes
+        fileReaderBtn.innerText = 'Now upload the same file'
+      })
 
     </script>
   </body>
