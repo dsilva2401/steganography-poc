@@ -17,74 +17,116 @@
     <script src="./main.js"></script>
     <script>
 
-      // Bytes and numbers
-      const initnToBytesValues = [123, 123534535, 56756, 34957]
-      initnToBytesValues.forEach(initnToBytesV => {
-        const ntoBytesOut = numberToBytes(initnToBytesV)
-        const bytesFromNtoBytes = fromBytesToNumber(ntoBytesOut)
-        if (initnToBytesV != bytesFromNtoBytes) { throw new Error('fromBytesToNumber => error') }
-      })
-      console.log('numberToBytes => ok')
-      console.log('fromBytesToNumber => ok')
+      async function runTests () {
 
-      // Bytes and strings
-      const initSToBytesValues = ['asldlksjlfsdf', 'a', 'sdlfjkjsd fkjsdk fjhsdk jhsdkjf hksjd hfkjsdkjdsfh ksdjf hksjdhf kjshdk fjhdksjfhksdjh fkjsdhf ksdf', 'sdlfjkjsd fkjsdk fjhsdk jhsdkjf hksjd hfkjsdkjdsfh ksdjf hksjdhf kjshdk fjhdksjfhksdjh fkjsdhf ksdf', 'fkjsdk fjhsdk jhsdkjf hksjd hfkjsdkjdsfh ksdjf hksjdhf kjshdk fjhdksjfhksdjh fkjsdhf ksdf fkjsdk fjhsdk jhsdkjf hksjd hfkjsdkjdsfh ksdjf hksjdhf kjshdk fjhdksjfhksdjh fkjsdhf ksdf fkjsdk fjhsdk jhsdkjf hksjd hfkjsdkjdsfh ksdjf hksjdhf kjshdk fjhdksjfhksdjh fkjsdhf ksdf fkjsdk fjhsdk jhsdkjf hksjd hfkjsdkjdsfh ksdjf hksjdhf kjshdk fjhdksjfhksdjh fkjsdhf ksdf fkjsdk fjhsdk jhsdkjf hksjd hfkjsdkjdsfh ksdjf hksjdhf kjshdk fjhdksjfhksdjh fkjsdhf ksdf fkjsdk fjhsdk jhsdkjf hksjd hfkjsdkjdsfh ksdjf hksjdhf kjshdk fjhdksjfhksdjh fkjsdhf ksdf']
-      initSToBytesValues.forEach(initSToBytesV => {
-        const stoBytesOut = stringToBytes(initSToBytesV)
-        const bytesFromStoBytes = bytesToString(stoBytesOut)
-        if (initSToBytesV != bytesFromStoBytes) { throw new Error('bytesToString => error') }
-      })
-      console.log('stringToBytes => ok')
-      console.log('bytesToString => ok')
-
-      // Canvas manager
-      const imagesContentManager = new ImagesContentManager()
-
-      // Bits and bytes
-      const initBToBytesValues = [0, 1, 7, 123, 255]
-      initBToBytesValues.forEach(buffV => {
-        const buffOut = imagesContentManager.extract3BitsGroupFromByte(buffV)
-        const buffInitOut = imagesContentManager.getByteFrom3BitsGroup(buffOut)
-        if (buffV != buffInitOut) { throw new Error('imagesContentManager.extract3BitsGroupFromByte => error') }
-      })
-      console.log('imagesContentManager.extract3BitsGroupFromByte => ok')
-      console.log('imagesContentManager.getByteFrom3BitsGroup => ok')
-
-      // Bytes and RGB
-      const initBytesForRGB = [0, 1, 7, 123, 255, 43]
-      const initRGBForBytes = [ [0, 0, 0], [1, 1, 1], [255, 255, 255], [123, 123, 123], [92,123,45] ]
-      initBytesForRGB.forEach(buffByte => {
-        initRGBForBytes.forEach(buffRGB => {
-          const buffOut = imagesContentManager.saveByteInRGB({ byte: buffByte, rgb: buffRGB })
-          const buffInitOut = imagesContentManager.getByteFromRGB(buffOut)
-          if (buffByte != buffInitOut) { throw new Error('imagesContentManager.saveByteInRGB => error') }
-        })
-      })
-      console.log('imagesContentManager.saveByteInRGB => ok')
-      console.log('imagesContentManager.getByteFromRGB => ok')
-
-      // File reader integrity
-      const filesManager = new FilesManager()
-      const fileReaderBtn = document.getElementById('file-reader-upload-btn')
-      let buffBytes
-      fileReaderBtn.addEventListener('click', async () => {
-        const { bytes } = await filesManager.requestFile({ extractBytes: true })
-        if (buffBytes) {
-          bytesForStr = bytes
-          buffBytesForStr = buffBytes
-          if (bytesForStr.length%1) { bytesForStr.pop() }
-          if (buffBytesForStr.length%1) { buffBytesForStr.pop() }
-          const bytesStr = bytesToString(bytesForStr)
-          const buffBytesStr = bytesToString(buffBytesForStr)
-          if (bytesStr != buffBytesStr) { throw new Error('filesManager.requestFile => error') }
-          console.log('filesManager.requestFile => ok')
-          fileReaderBtn.innerText = 'Upload a new file'
-          buffBytes = null
-          return
+        // Functions
+        function compareBytesArrays (ba1, ba2) {
+          let buffBa1 = ba1.slice()
+          let buffBa2 = ba2.slice()
+          if (ba1.length % 2) {
+            buffBa1.pop();
+            buffBa2.pop();
+          }
+          return bytesToString(buffBa1) == bytesToString(buffBa2)
         }
-        buffBytes = bytes
-        fileReaderBtn.innerText = 'Now upload the same file'
-      })
+
+        // Bytes and numbers
+        const initnToBytesValues = [123, 123534535, 56756, 34957]
+        initnToBytesValues.forEach(initnToBytesV => {
+          const ntoBytesOut = numberToBytes(initnToBytesV)
+          const bytesFromNtoBytes = fromBytesToNumber(ntoBytesOut)
+          if (initnToBytesV != bytesFromNtoBytes) { throw new Error('fromBytesToNumber => error') }
+        })
+        console.log('numberToBytes => ok')
+        console.log('fromBytesToNumber => ok')
+
+        // Bytes and strings
+        const initSToBytesValues = ['asldlksjlfsdf', 'a', 'sdlfjkjsd fkjsdk fjhsdk jhsdkjf hksjd hfkjsdkjdsfh ksdjf hksjdhf kjshdk fjhdksjfhksdjh fkjsdhf ksdf', 'sdlfjkjsd fkjsdk fjhsdk jhsdkjf hksjd hfkjsdkjdsfh ksdjf hksjdhf kjshdk fjhdksjfhksdjh fkjsdhf ksdf', 'fkjsdk fjhsdk jhsdkjf hksjd hfkjsdkjdsfh ksdjf hksjdhf kjshdk fjhdksjfhksdjh fkjsdhf ksdf fkjsdk fjhsdk jhsdkjf hksjd hfkjsdkjdsfh ksdjf hksjdhf kjshdk fjhdksjfhksdjh fkjsdhf ksdf fkjsdk fjhsdk jhsdkjf hksjd hfkjsdkjdsfh ksdjf hksjdhf kjshdk fjhdksjfhksdjh fkjsdhf ksdf fkjsdk fjhsdk jhsdkjf hksjd hfkjsdkjdsfh ksdjf hksjdhf kjshdk fjhdksjfhksdjh fkjsdhf ksdf fkjsdk fjhsdk jhsdkjf hksjd hfkjsdkjdsfh ksdjf hksjdhf kjshdk fjhdksjfhksdjh fkjsdhf ksdf fkjsdk fjhsdk jhsdkjf hksjd hfkjsdkjdsfh ksdjf hksjdhf kjshdk fjhdksjfhksdjh fkjsdhf ksdf']
+        initSToBytesValues.forEach(initSToBytesV => {
+          const stoBytesOut = stringToBytes(initSToBytesV)
+          const bytesFromStoBytes = bytesToString(stoBytesOut)
+          if (initSToBytesV != bytesFromStoBytes) { throw new Error('bytesToString => error') }
+        })
+        console.log('stringToBytes => ok')
+        console.log('bytesToString => ok')
+
+        // Canvas manager
+        const imagesContentManager = new ImagesContentManager()
+
+        // Bits and bytes
+        const initBToBytesValues = [0, 1, 7, 123, 255]
+        initBToBytesValues.forEach(buffV => {
+          const buffOut = imagesContentManager.extract3BitsGroupFromByte(buffV)
+          const buffInitOut = imagesContentManager.getByteFrom3BitsGroup(buffOut)
+          if (buffV != buffInitOut) { throw new Error('imagesContentManager.extract3BitsGroupFromByte => error') }
+        })
+        console.log('imagesContentManager.extract3BitsGroupFromByte => ok')
+        console.log('imagesContentManager.getByteFrom3BitsGroup => ok')
+
+        // Bytes and RGB
+        const initBytesForRGB = [0, 1, 7, 123, 255, 43]
+        const initRGBForBytes = [ [0, 0, 0], [1, 1, 1], [255, 255, 255], [123, 123, 123], [92,123,45] ]
+        initBytesForRGB.forEach(buffByte => {
+          initRGBForBytes.forEach(buffRGB => {
+            const buffOut = imagesContentManager.saveByteInRGB({ byte: buffByte, rgb: buffRGB })
+            const buffInitOut = imagesContentManager.getByteFromRGB(buffOut)
+            if (buffByte != buffInitOut) { throw new Error('imagesContentManager.saveByteInRGB => error') }
+          })
+        })
+        console.log('imagesContentManager.saveByteInRGB => ok')
+        console.log('imagesContentManager.getByteFromRGB => ok')
+
+        // Draw image canvas manager integrity
+        const imagesToTest = ['./assets/test1.png']
+        const canvasManager1 = new CanvasManager()
+        const canvasManager2 = new CanvasManager()
+        for (let imageUrl of imagesToTest) {
+          await canvasManager1.drawImage({ imageUrl })
+          await canvasManager2.drawImage({ imageUrl })
+          const pixels1 = canvasManager1.getPixels()
+          const pixels2 = canvasManager2.getPixels()
+          const bytesFromPixels1 = pixels1.map(p => imagesContentManager.getByteFromRGB(p.rgb))
+          const bytesFromPixels2 = pixels2.map(p => imagesContentManager.getByteFromRGB(p.rgb))
+          if (!compareBytesArrays(bytesFromPixels1, bytesFromPixels2)) { throw new Error('canvasManager.drawImage => error') }
+        }
+        console.log('canvasManager.drawImage => ok')
+        
+        // Get pixels and draw them integrity
+        const canvasManager3 = new CanvasManager()
+        const imagesToTest2 = ['./assets/test1.png']
+        for (let imageUrl of imagesToTest2) {
+          await canvasManager1.drawImage({ imageUrl })
+          const pixels1 = canvasManager3.getPixels()
+          await canvasManager3.updatePixels(pixels1.map(p => ({ ...p, rgb: [0, 0, 0] })) )
+          await canvasManager3.updatePixels(pixels1)
+          const pixels2 = canvasManager3.getPixels()
+          const bytesFromPixels1 = pixels1.map(p => imagesContentManager.getByteFromRGB(p.rgb))
+          const bytesFromPixels2 = pixels2.map(p => imagesContentManager.getByteFromRGB(p.rgb))
+          if (!compareBytesArrays(bytesFromPixels1, bytesFromPixels2)) { throw new Error('canvasManager.updatePixels => error') }
+        }
+        console.log('canvasManager.updatePixels => ok')
+
+        // File reader integrity
+        const filesManager = new FilesManager()
+        const fileReaderBtn = document.getElementById('file-reader-upload-btn')
+        let buffBytes
+        fileReaderBtn.addEventListener('click', async () => {
+          const { bytes } = await filesManager.requestFile({ extractBytes: true })
+          if (buffBytes) {
+            bytesForStr = bytes
+            if (compareBytesArrays(bytes, buffBytes)) { throw new Error('filesManager.requestFile => error') }
+            console.log('filesManager.requestFile => ok')
+            fileReaderBtn.innerText = 'Upload a new file'
+            buffBytes = null
+            return
+          }
+          buffBytes = bytes
+          fileReaderBtn.innerText = 'Now upload the same file'
+        })
+
+      }
+
+      runTests()
 
     </script>
   </body>
