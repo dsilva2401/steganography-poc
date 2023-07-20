@@ -4,12 +4,63 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>HueHide</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Rubik&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              'hhtitle': ['Open Sans', 'sans-serif'],
+              'hhregular': ['Rubik', 'sans-serif'],
+            },
+            colors: {
+              clifford: '#da373d',
+            }
+          }
+        }
+      }
+    </script>
   </head>
 
   <body>
 
-    <div style="border: 1px solid black; margin-bottom: 10px;">
+    <div class="absolute w-full h-full flex flex-col p-[1rem] gap-[1rem] bg-[#f6f7fe]">
+
+      <!-- Intro -->
+      <div class="flex w-full flex-col">
+        <h1 class="font-hhtitle text-[2rem] font-bold">HueHide</h1>
+        <p class="font-hhregular text-[1rem]">Hide any file in the colors of an image 🌈</p>
+        <p class="font-hhregular text-[1rem]">Content never reaches the server so it's secret 🥷, use this tool with responsability</p>
+      </div>
+
+      <!-- Save content -->
+      <div class="flex flex-row w-full flex-1 gap-[1rem] border-dashed border-[#cccccc] border-[2px] rounded-lg p-[1rem]">
+        <div id="source-image-container" class="flex flex-1 h-full bg-white rounded-xl items-center justify-center cursor-pointer">
+          <p class="text-[#777777]">Select an image</p>
+        </div>
+        <div class="flex w-[40%] h-full flex-col gap-[1rem]">
+          <div id="source-file-container" class="flex h-[60%] bg-white rounded-xl items-center justify-center cursor-pointer text-center px-[0.5rem] overflow-hidden">
+            <p class="text-[#777777] text-center">Select a file to hide</p>
+          </div>
+          <div id="download-hh-file" class="opacity-0 transition-all flex flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-xl items-center justify-center cursor-pointer text-center px-[0.5rem] overflow-hidden">
+            <p class="text-[#ffffff] text-center font-bold text-[1.2rem]">Download new image</p>
+          </div>
+        </div>
+      </div>
+      <p class="font-hhregular text-[1rem]">If you share this image remember to send it as a file to avoid compression.</p>
+
+      <!-- Extrage content -->
+      <div id="extract-content-btn" class="flex w-full h-[25%] rounded-lg bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 items-center justify-center cursor-pointer text-center">
+        <p class="text-center text-[1.2rem] text-white font-bold">Do you have an image? Click here to extract the hidden content</p>  
+      </div>
+
+    </div>
+
+    <!-- <div style="border: 1px solid black; margin-bottom: 10px;">
       <h1>Save file</h1>
       <img id="image-preview" height="100" />
       <p>File name:</p>
@@ -23,6 +74,7 @@
       <h1>Extract file</h1>
       <button id="select-image-to-extract-btn">Select image</button>
     </div>
+     -->
 
     <script src="./main.js"></script>
   </body>

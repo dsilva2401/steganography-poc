@@ -342,15 +342,21 @@ class ImagesContentManager {
 }
 
 // Setup elements
-const downloadCanvasFileBtn = document.getElementById('download-canvas-file-btn');
-const readTestPixelValueBtn = document.getElementById('read-test-pixel-value-btn');
-const updateTestPixelValueBtn = document.getElementById('update-test-pixel-value-btn');
-const requestFileToHideBtn = document.getElementById('request-file-to-hide-btn');
-const requestImageBtn = document.getElementById('request-image-btn');
-const fileToHideName = document.getElementById('file-to-hide-name');
-const imagePreview = document.getElementById('image-preview');
-const saveAndDownloadNewImageBtn = document.getElementById('save-and-download-new-image-btn');
-const selectImageToExtractBtn = document.getElementById('select-image-to-extract-btn')
+const sourceImageContainer = document.getElementById('source-image-container');
+const sourceFileContainer = document.getElementById('source-file-container');
+const downloadHHFile = document.getElementById('download-hh-file');
+const extractContentBtn = document.getElementById('extract-content-btn');
+
+
+// const downloadCanvasFileBtn = document.getElementById('download-canvas-file-btn');
+// const readTestPixelValueBtn = document.getElementById('read-test-pixel-value-btn');
+// const updateTestPixelValueBtn = document.getElementById('update-test-pixel-value-btn');
+// const requestFileToHideBtn = document.getElementById('request-file-to-hide-btn');
+// const requestImageBtn = document.getElementById('request-image-btn');
+// const fileToHideName = document.getElementById('file-to-hide-name');
+// const imagePreview = document.getElementById('image-preview');
+// const saveAndDownloadNewImageBtn = document.getElementById('save-and-download-new-image-btn');
+// const selectImageToExtractBtn = document.getElementById('select-image-to-extract-btn')
 
 // Setup variables
 let originalImageUrl
@@ -361,23 +367,33 @@ const filesManager = new FilesManager()
 const imagesContentManager = new ImagesContentManager()
 
 // Setup events
-requestImageBtn.addEventListener('click', async () => {
+function checkIfHHFileConditionsAreMet () {
+  if (!!originalImageUrl && !!fileToSaveData) {
+    downloadHHFile.style.opacity = 1
+  }
+}
+sourceImageContainer.addEventListener('click', async () => {
   const { fileUrl } = await filesManager.requestFile()
   originalImageUrl = fileUrl
-  imagePreview.src = fileUrl
+  sourceImageContainer.innerHTML = ''
+  sourceImageContainer.style.background = `url(${fileUrl}) no-repeat center center`
+  sourceImageContainer.style.backgroundSize = 'contain'
+  checkIfHHFileConditionsAreMet()
 })
-requestFileToHideBtn.addEventListener('click', async () => {
+sourceFileContainer.addEventListener('click', async () => {
   const fileData = await filesManager.requestFile({ extractBytes: true })
-  fileToHideName.innerText = fileData.file.name
+  sourceFileContainer.innerText = 'File: '+fileData.file.name
   fileToSaveData = fileData
+  checkIfHHFileConditionsAreMet()
 })
-saveAndDownloadNewImageBtn.addEventListener('click', async () => {
+downloadHHFile.addEventListener('click', async () => {
+  if (!originalImageUrl || !fileToSaveData) { return }
   await imagesContentManager.saveFileInImage({
     imageUrl: originalImageUrl,
     fileData: fileToSaveData
   })
 })
-selectImageToExtractBtn.addEventListener('click', async () => {
+extractContentBtn.addEventListener('click', async () => {
   const { fileUrl } = await filesManager.requestFile()
   imagesContentManager.extractFileFromImage({
     imageUrl: fileUrl
