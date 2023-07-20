@@ -376,7 +376,7 @@ sourceImageContainer.addEventListener('click', async () => {
   const { fileUrl } = await filesManager.requestFile()
   originalImageUrl = fileUrl
   sourceImageContainer.innerHTML = ''
-  sourceImageContainer.style.background = `url(${fileUrl}) no-repeat center center`
+  sourceImageContainer.style.background = 'url('+fileUrl+') no-repeat center center'
   sourceImageContainer.style.backgroundSize = 'contain'
   checkIfHHFileConditionsAreMet()
 })
