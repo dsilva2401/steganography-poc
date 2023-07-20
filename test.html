@@ -9,9 +9,13 @@
 
   <body>
 
-    <div>
+    <div style="border: 1px solid grey;">
       <h3>Test file reader integrity</h3>
       <button id="file-reader-upload-btn">Upload a file</button>
+    </div>
+    <div style="border: 1px solid grey;">
+      <h3>Test canvas import/export integrity</h3>
+      <button id="image-upload-btn">Upload an image</button>
     </div>
 
     <script src="./main.js"></script>
@@ -114,7 +118,7 @@
           const { bytes } = await filesManager.requestFile({ extractBytes: true })
           if (buffBytes) {
             bytesForStr = bytes
-            if (compareBytesArrays(bytes, buffBytes)) { throw new Error('filesManager.requestFile => error') }
+            if (!compareBytesArrays(bytes, buffBytes)) { throw new Error('filesManager.requestFile => error') }
             console.log('filesManager.requestFile => ok')
             fileReaderBtn.innerText = 'Upload a new file'
             buffBytes = null
@@ -122,6 +126,27 @@
           }
           buffBytes = bytes
           fileReaderBtn.innerText = 'Now upload the same file'
+        })
+
+        // Canvas import/export integrity
+        const filesManager1 = new FilesManager()
+        const imageUploadBtn = document.getElementById('image-upload-btn')
+        let buffBytesFromFirstUpload
+        imageUploadBtn.addEventListener('click', async () => {
+          const { fileUrl } = await filesManager1.requestFile()
+          const canvasManager4 = new CanvasManager()
+          await canvasManager4.drawImage({ imageUrl: fileUrl })
+          const imagesContentManager2 = new ImagesContentManager()
+          const bytesFromPixels = canvasManager4.getPixels().map(p => p.rgb.join(',')).join(';')
+          if (!!buffBytesFromFirstUpload) {
+            if (buffBytesFromFirstUpload != bytesFromPixels) { throw new Error('canvasManager.downloadImage => error') }
+            imageUploadBtn.innerText = 'Upload a new image'
+            console.log('canvasManager.downloadImage => ok')
+            return
+          }
+          buffBytesFromFirstUpload = bytesFromPixels
+          canvasManager4.downloadImage()
+          imageUploadBtn.innerText = 'Now upload the image you just downloaded'
         })
 
       }
