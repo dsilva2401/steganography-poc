@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HueHide Test</title>
+  </head>
+
+  <body>
+    <script src="./main.js"></script>
+    <script>
+
+      // Bytes and numbers
+      const initnToBytesValues = [123, 123534535, 56756, 34957]
+      initnToBytesValues.forEach(initnToBytesV => {
+        const ntoBytesOut = numberToBytes(initnToBytesV)
+        const bytesFromNtoBytes = fromBytesToNumber(ntoBytesOut)
+        if (initnToBytesV != bytesFromNtoBytes) { throw new Error('fromBytesToNumber => error') }
+      })
+      console.log('numberToBytes => ok')
+      console.log('fromBytesToNumber => ok')
+
+      // Bytes and strings
+      const initSToBytesValues = ['asldlksjlfsdf', 'a', 'sdlfjkjsd fkjsdk fjhsdk jhsdkjf hksjd hfkjsdkjdsfh ksdjf hksjdhf kjshdk fjhdksjfhksdjh fkjsdhf ksdf', 'sdlfjkjsd fkjsdk fjhsdk jhsdkjf hksjd hfkjsdkjdsfh ksdjf hksjdhf kjshdk fjhdksjfhksdjh fkjsdhf ksdf', 'fkjsdk fjhsdk jhsdkjf hksjd hfkjsdkjdsfh ksdjf hksjdhf kjshdk fjhdksjfhksdjh fkjsdhf ksdf fkjsdk fjhsdk jhsdkjf hksjd hfkjsdkjdsfh ksdjf hksjdhf kjshdk fjhdksjfhksdjh fkjsdhf ksdf fkjsdk fjhsdk jhsdkjf hksjd hfkjsdkjdsfh ksdjf hksjdhf kjshdk fjhdksjfhksdjh fkjsdhf ksdf fkjsdk fjhsdk jhsdkjf hksjd hfkjsdkjdsfh ksdjf hksjdhf kjshdk fjhdksjfhksdjh fkjsdhf ksdf fkjsdk fjhsdk jhsdkjf hksjd hfkjsdkjdsfh ksdjf hksjdhf kjshdk fjhdksjfhksdjh fkjsdhf ksdf fkjsdk fjhsdk jhsdkjf hksjd hfkjsdkjdsfh ksdjf hksjdhf kjshdk fjhdksjfhksdjh fkjsdhf ksdf']
+      initSToBytesValues.forEach(initSToBytesV => {
+        const stoBytesOut = stringToBytes(initSToBytesV)
+        const bytesFromStoBytes = bytesToString(stoBytesOut)
+        if (initSToBytesV != bytesFromStoBytes) { throw new Error('bytesToString => error') }
+      })
+      console.log('stringToBytes => ok')
+      console.log('bytesToString => ok')
+
+    </script>
+  </body>
+
+</html>
