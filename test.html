@@ -18,6 +18,8 @@
       <button id="image-upload-btn">Upload an image</button>
     </div>
 
+    <button id="test">Test</button>
+
     <script src="./main.js"></script>
     <script>
 
@@ -148,6 +150,33 @@
           canvasManager4.downloadImage()
           imageUploadBtn.innerText = 'Now upload the image you just downloaded'
         })
+
+
+
+        function uint8ClampedArrayToBase64(array) {
+          const binaryString = String.fromCharCode.apply(null, array);
+          return btoa(binaryString);
+        }
+        document.getElementById('test').addEventListener('click', async () => {
+          const buffFilesManager = new FilesManager()
+          const { fileUrl: buffFileUrl, file } = await buffFilesManager.requestFile()
+          const buffCanvasManager = new CanvasManager()
+          await buffCanvasManager.drawImage({ imageUrl: buffFileUrl })
+          const buffContext = buffCanvasManager._canvasElement.getContext('2d')
+          const buffImageData = buffContext.getImageData(0, 0, buffCanvasManager._canvasElement.width, buffCanvasManager._canvasElement.height)
+          console.log(buffImageData.data)
+          buffFilesManager.downloadFileFromBuffer({
+            fileBuffer: buffImageData.data.buffer,
+            fileName: 'cp-'+file.name
+          })
+          // const buffOutUrl = 'data:image/png;base64,'+uint8ClampedArrayToBase64(buffImageData.data)
+          // console.log(buffOutUrl)
+        })
+
+
+
+
+
 
       }
 
