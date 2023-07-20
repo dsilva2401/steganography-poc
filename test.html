@@ -31,6 +31,33 @@
       console.log('stringToBytes => ok')
       console.log('bytesToString => ok')
 
+      // Canvas manager
+      const imagesContentManager = new ImagesContentManager()
+
+      // Bits and bytes
+      const initBToBytesValues = [0, 1, 7, 123, 255]
+      initBToBytesValues.forEach(buffV => {
+        const buffOut = imagesContentManager.extract3BitsGroupFromByte(buffV)
+        const buffInitOut = imagesContentManager.getByteFrom3BitsGroup(buffOut)
+        if (buffV != buffInitOut) { throw new Error('imagesContentManager.extract3BitsGroupFromByte => error') }
+      })
+      console.log('imagesContentManager.extract3BitsGroupFromByte => ok')
+      console.log('imagesContentManager.getByteFrom3BitsGroup => ok')
+
+      // Bytes and RGB
+      const initBytesForRGB = [0, 1, 7, 123, 255, 43]
+      const initRGBForBytes = [ [0, 0, 0], [1, 1, 1], [255, 255, 255], [123, 123, 123], [92,123,45] ]
+      initBytesForRGB.forEach(buffByte => {
+        initRGBForBytes.forEach(buffRGB => {
+          const buffOut = imagesContentManager.saveByteInRGB({ byte: buffByte, rgb: buffRGB })
+          const buffInitOut = imagesContentManager.getByteFromRGB(buffOut)
+          if (buffByte != buffInitOut) { throw new Error('imagesContentManager.saveByteInRGB => error') }
+        })
+      })
+      console.log('imagesContentManager.saveByteInRGB => ok')
+      console.log('imagesContentManager.getByteFromRGB => ok')
+
+
     </script>
   </body>
 
