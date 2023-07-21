@@ -1,3 +1,5 @@
+const separationBytes = [11, 22, 33, 22, 11]
+
 function bitLength(number) {
   return Math.floor(Math.log2(number)) + 1;
 }
@@ -64,6 +66,171 @@ function byteArrayToArrayBuffer(byteArray) {
     view[i] = byteArray[i];
   }
   return buffer;
+}
+
+function extract3BitsGroupFromByte (byte) {
+  const firstBits = byte & 192
+  const midBits = byte & 56
+  const lastBits = byte & 7
+  return [ firstBits >> 6, midBits >> 3, lastBits ]
+}
+
+function cleanLastBitsFromRGB (rgb) {
+  return rgb.map(c => (c & 248))
+}
+
+function saveByteInRGB ({ rgb, byte }) {
+  const bitsGroup = extract3BitsGroupFromByte(byte)
+  let cleanRGB = cleanLastBitsFromRGB(rgb)
+  return cleanRGB.map((c, idx) => {
+    return c + bitsGroup[idx]
+  })
+}
+
+function getByteFrom3BitsGroup (bitsGroup) {
+  return (bitsGroup[0]<<6)+(bitsGroup[1]<<3)+bitsGroup[2]
+}
+
+function getByteFromRGB (rgb) {
+  const firstBits = rgb[0] & 3
+  const midBits = rgb[1] & 7
+  const lastBits = rgb[2] & 7
+  return (firstBits<<6) + (midBits<<3) + lastBits
+}
+
+function saveBytesGroupsToPixels ({ bytesGroups, pixels }) {
+  if (( bytesGroups.flat().length + bytesGroups.length*5) > pixels.length) {
+    throw new Error('Not enough pixels to save bytes')
+  }
+  let cleanPixels = pixels.slice().map(p => ({ ...p, rgb: cleanLastBitsFromRGB(p.rgb) }))
+  let pixelCounter = 0
+  bytesGroups.forEach(bytes => {
+    for (let i=0; i<bytes.length; i++) {
+      cleanPixels[pixelCounter].rgb = saveByteInRGB({ rgb: cleanPixels[pixelCounter].rgb, byte: bytes[i] })
+      pixelCounter++
+    }
+    separationBytes.forEach(b => {
+      cleanPixels[pixelCounter].rgb = saveByteInRGB({ rgb: cleanPixels[pixelCounter].rgb, byte: b })
+      pixelCounter++
+    })
+  })
+  return cleanPixels
+}
+
+function extractBytesGroupsFromPixels (imagePixels) {
+    
+  // Find separators indexes
+  let separatorsIndexes = []
+  for (let i=0; i<(imagePixels.length-separationBytes.length); i++) {
+    const isSeparatorStart = separationBytes.reduce((acc, b, idx) => {
+      return acc && (getByteFromRGB(imagePixels[i+idx].rgb) === b)
+    }, true)
+    if (isSeparatorStart) {
+      separatorsIndexes.push(i)
+    }
+  }
+
+  // Get bytes groups
+  const bytesGroups = []
+  separatorsIndexes.forEach((_, idx) => {
+    if (!idx) {
+      const buffGroup = imagePixels.slice(0, separatorsIndexes[0]).map(p => getByteFromRGB(p.rgb))
+      bytesGroups.push(buffGroup)
+      return
+    }
+    const buffGroup = imagePixels.slice(separatorsIndexes[idx-1]+separationBytes.length, separatorsIndexes[idx]).map(p => getByteFromRGB(p.rgb))
+    bytesGroups.push(buffGroup)
+  })
+
+  return bytesGroups
+}
+
+async function saveFileInImage ({ imageUrl, fileData }) {
+
+  // Render image in canvas
+  const canvasManager = new CanvasManager()
+  await canvasManager.drawImage({ imageUrl, squareSize: fileData.file.size+300 })
+
+  // Clear image pixels
+  const imagePixels = canvasManager.getPixels()
+
+  // Save size
+  const fileSizeInBytes = numberToBytes(fileData.file.size)
+  const fileTypeInBytes = stringToBytes(fileData.file.name.split('.').pop())
+  
+  // Update pixels
+  const updatedPixels = saveBytesGroupsToPixels({
+    bytesGroups: [fileSizeInBytes, fileTypeInBytes, fileData.bytes],
+    pixels: imagePixels
+  })
+
+  // Update canvas
+  canvasManager.updatePixels(updatedPixels)
+
+  // Download image
+  canvasManager.downloadImage()
+}
+
+async function extractFileFromImage ({ imageUrl }) {
+
+  // Init canvas manager
+  const canvasManager = new CanvasManager()
+
+  // Render image in canvas
+  await canvasManager.drawImage({ imageUrl })
+  const imagePixels = canvasManager.getPixels()
+
+  // Extract content from pixels
+  const bytesGroups = extractBytesGroupsFromPixels(imagePixels)
+  const fileSize = fromBytesToNumber(bytesGroups[0])
+  const fileType = bytesToString(bytesGroups[1])
+  const fileContentBytes = bytesGroups[2]
+
+  // Download file
+  if (fileSize !== fileContentBytes.length) {
+    alert('Image content is corrupted')
+    throw new Error('File size does not match')
+  }
+  downloadFileFromBuffer({
+    fileBuffer: byteArrayToArrayBuffer(fileContentBytes),
+    fileName: 'file.'+fileType
+  })
+
+}
+
+function requestFile ({ extractBytes } = {}) {
+  return new Promise((resolve, reject) => {
+    const inputElement = document.createElement('input');
+    inputElement.type = 'file';
+    // inputElement.accept = 'image/*';
+    inputElement.onchange = () => {
+      const file = inputElement.files[0];
+      const fileUrl = URL.createObjectURL(file);
+      if (!file) {
+        reject('No file selected');
+      }
+      if (!!extractBytes) {
+        const fileReader = new FileReader();
+        fileReader.onload = function() {
+          const arrayBuffer = this.result;
+          const bytes = new Uint8Array(arrayBuffer);
+          resolve({ file, fileUrl, bytes, buffer: arrayBuffer });
+        };
+        fileReader.readAsArrayBuffer(file);
+      } else {
+        resolve({ file, fileUrl });
+      }
+    }
+    inputElement.click();
+  })
+}
+
+function downloadFileFromBuffer ({ fileName, fileBuffer }) {
+  const url = window.URL.createObjectURL(new Blob([fileBuffer]));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  a.click();
 }
 
 class CanvasManager {
@@ -154,187 +321,6 @@ class CanvasManager {
 
 }
 
-class FilesManager {
-
-  constructor () {}
-
-  requestFile ({ extractBytes } = {}) {
-    return new Promise((resolve, reject) => {
-      const inputElement = document.createElement('input');
-      inputElement.type = 'file';
-      // inputElement.accept = 'image/*';
-      inputElement.onchange = () => {
-        const file = inputElement.files[0];
-        const fileUrl = URL.createObjectURL(file);
-        if (!file) {
-          reject('No file selected');
-        }
-        if (!!extractBytes) {
-          const fileReader = new FileReader();
-          fileReader.onload = function() {
-            const arrayBuffer = this.result;
-            const bytes = new Uint8Array(arrayBuffer);
-            resolve({ file, fileUrl, bytes, buffer: arrayBuffer });
-          };
-          fileReader.readAsArrayBuffer(file);
-        } else {
-          resolve({ file, fileUrl });
-        }
-      }
-      inputElement.click();
-    })
-  }
-
-  downloadFileFromBuffer ({ fileName, fileBuffer }) {
-    const url = window.URL.createObjectURL(new Blob([fileBuffer]));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    a.click();
-  }
-
-}
-
-class ImagesContentManager {
-
-  constructor () {
-    this._canvasManager = new CanvasManager()
-    this._separationBytes = [11, 22, 33, 22, 11]
-  }
-
-  extract3BitsGroupFromByte (byte) {
-    const firstBits = byte & 192
-    const midBits = byte & 56
-    const lastBits = byte & 7
-    return [ firstBits >> 6, midBits >> 3, lastBits ]
-  }
-
-  getByteFrom3BitsGroup (bitsGroup) {
-    return (bitsGroup[0]<<6)+(bitsGroup[1]<<3)+bitsGroup[2]
-  }
-
-  cleanLastBitsFromRGB (rgb) {
-    return rgb.map(c => (c & 248))
-  }
-
-  saveByteInRGB ({ rgb, byte }) {
-    const bitsGroup = this.extract3BitsGroupFromByte(byte)
-    let cleanRGB = this.cleanLastBitsFromRGB(rgb)
-    return cleanRGB.map((c, idx) => {
-      return c + bitsGroup[idx]
-    })
-  }
-
-  getByteFromRGB (rgb) {
-    const firstBits = rgb[0] & 3
-    const midBits = rgb[1] & 7
-    const lastBits = rgb[2] & 7
-    return (firstBits<<6) + (midBits<<3) + lastBits
-  }
-
-  saveBytesGroupsToPixels ({ bytesGroups, pixels }) {
-    if (( bytesGroups.flat().length + bytesGroups.length*5) > pixels.length) {
-      throw new Error('Not enough pixels to save bytes')
-    }
-    let cleanPixels = pixels.slice().map(p => ({ ...p, rgb: this.cleanLastBitsFromRGB(p.rgb) }))
-    let pixelCounter = 0
-    bytesGroups.forEach(bytes => {
-      for (let i=0; i<bytes.length; i++) {
-        cleanPixels[pixelCounter].rgb = this.saveByteInRGB({ rgb: cleanPixels[pixelCounter].rgb, byte: bytes[i] })
-        pixelCounter++
-      }
-      this._separationBytes.forEach(b => {
-        cleanPixels[pixelCounter].rgb = this.saveByteInRGB({ rgb: cleanPixels[pixelCounter].rgb, byte: b })
-        pixelCounter++
-      })
-    })
-    return cleanPixels
-  }
-
-  extractBytesGroupsFromPixels (imagePixels) {
-    
-    // Find separators indexes
-    let separatorsIndexes = []
-    for (let i=0; i<(imagePixels.length-this._separationBytes.length); i++) {
-      const isSeparatorStart = this._separationBytes.reduce((acc, b, idx) => {
-        return acc && (this.getByteFromRGB(imagePixels[i+idx].rgb) === b)
-      }, true)
-      if (isSeparatorStart) {
-        separatorsIndexes.push(i)
-      }
-    }
-
-    // Get bytes groups
-    const bytesGroups = []
-    separatorsIndexes.forEach((_, idx) => {
-      if (!idx) {
-        const buffGroup = imagePixels.slice(0, separatorsIndexes[0]).map(p => this.getByteFromRGB(p.rgb))
-        bytesGroups.push(buffGroup)
-        return
-      }
-      const buffGroup = imagePixels.slice(separatorsIndexes[idx-1]+this._separationBytes.length, separatorsIndexes[idx]).map(p => this.getByteFromRGB(p.rgb))
-      bytesGroups.push(buffGroup)
-    })
-
-    return bytesGroups
-  }
-
-  async saveFileInImage ({ imageUrl, fileData }) {
-
-    // Render image in canvas
-    const canvasManager = new CanvasManager()
-    await canvasManager.drawImage({ imageUrl, squareSize: fileData.file.size+300 })
-
-    // Clear image pixels
-    const imagePixels = canvasManager.getPixels()
-
-    // Save size
-    const fileSizeInBytes = numberToBytes(fileData.file.size)
-    const fileTypeInBytes = stringToBytes(fileData.file.name.split('.').pop())
-    
-    // Update pixels
-    const updatedPixels = this.saveBytesGroupsToPixels({
-      bytesGroups: [fileSizeInBytes, fileTypeInBytes, fileData.bytes],
-      pixels: imagePixels
-    })
-
-    // Update canvas
-    canvasManager.updatePixels(updatedPixels)
-
-    // Download image
-    canvasManager.downloadImage()
-  }
-
-  async extractFileFromImage ({ imageUrl }) {
-
-    // Init canvas manager
-    const canvasManager = new CanvasManager()
-
-    // Render image in canvas
-    await canvasManager.drawImage({ imageUrl })
-    const imagePixels = canvasManager.getPixels()
-
-    // Extract content from pixels
-    const bytesGroups = this.extractBytesGroupsFromPixels(imagePixels)
-    const fileSize = fromBytesToNumber(bytesGroups[0])
-    const fileType = bytesToString(bytesGroups[1])
-    const fileContentBytes = bytesGroups[2]
-
-    // Download file
-    if (fileSize !== fileContentBytes.length) {
-      alert('Image content is corrupted')
-      throw new Error('File size does not match')
-    }
-    const fileManager = new FilesManager()
-    fileManager.downloadFileFromBuffer({
-      fileBuffer: byteArrayToArrayBuffer(fileContentBytes),
-      fileName: 'file.'+fileType
-    })
-
-  }
-
-}
-
 try {
 
   // Setup elements
@@ -347,10 +333,6 @@ try {
   let originalImageUrl
   let fileToSaveData
 
-  // Initialize classes
-  const filesManager = new FilesManager()
-  const imagesContentManager = new ImagesContentManager()
-
   // Setup events
   function checkIfHHFileConditionsAreMet () {
     if (!!originalImageUrl && !!fileToSaveData) {
@@ -358,7 +340,7 @@ try {
     }
   }
   sourceImageContainer.addEventListener('click', async () => {
-    const { fileUrl } = await filesManager.requestFile()
+    const { fileUrl } = await requestFile()
     originalImageUrl = fileUrl
     sourceImageContainer.innerHTML = ''
     sourceImageContainer.style.background = 'url('+fileUrl+') no-repeat center center'
@@ -366,21 +348,21 @@ try {
     checkIfHHFileConditionsAreMet()
   })
   sourceFileContainer.addEventListener('click', async () => {
-    const fileData = await filesManager.requestFile({ extractBytes: true })
+    const fileData = await requestFile({ extractBytes: true })
     sourceFileContainer.innerText = 'File: '+fileData.file.name
     fileToSaveData = fileData
     checkIfHHFileConditionsAreMet()
   })
   downloadHHFile.addEventListener('click', async () => {
     if (!originalImageUrl || !fileToSaveData) { return }
-    await imagesContentManager.saveFileInImage({
+    await saveFileInImage({
       imageUrl: originalImageUrl,
       fileData: fileToSaveData
     })
   })
   extractContentBtn.addEventListener('click', async () => {
-    const { fileUrl } = await filesManager.requestFile()
-    imagesContentManager.extractFileFromImage({
+    const { fileUrl } = await requestFile()
+    extractFileFromImage({
       imageUrl: fileUrl
     })
   })
