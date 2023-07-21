@@ -199,6 +199,7 @@ class ImagesContentManager {
 
   constructor () {
     this._canvasManager = new CanvasManager()
+    this._separationBytes = [11, 22, 33, 22, 11]
   }
 
   extract3BitsGroupFromByte (byte) {
@@ -231,6 +232,53 @@ class ImagesContentManager {
     return (firstBits<<6) + (midBits<<3) + lastBits
   }
 
+  saveBytesGroupsToPixels ({ bytesGroups, pixels }) {
+    if (( bytesGroups.flat().length + bytesGroups.length*5) > pixels.length) {
+      throw new Error('Not enough pixels to save bytes')
+    }
+    let cleanPixels = pixels.slice().map(p => ({ ...p, rgb: this.cleanLastBitsFromRGB(p.rgb) }))
+    let pixelCounter = 0
+    bytesGroups.forEach(bytes => {
+      for (let i=0; i<bytes.length; i++) {
+        cleanPixels[pixelCounter].rgb = this.saveByteInRGB({ rgb: cleanPixels[pixelCounter].rgb, byte: bytes[i] })
+        pixelCounter++
+      }
+      this._separationBytes.forEach(b => {
+        cleanPixels[pixelCounter].rgb = this.saveByteInRGB({ rgb: cleanPixels[pixelCounter].rgb, byte: b })
+        pixelCounter++
+      })
+    })
+    return cleanPixels
+  }
+
+  extractBytesGroupsFromPixels (imagePixels) {
+    
+    // Find separators indexes
+    let separatorsIndexes = []
+    for (let i=0; i<(imagePixels.length-this._separationBytes.length); i++) {
+      const isSeparatorStart = this._separationBytes.reduce((acc, b, idx) => {
+        return acc && (this.getByteFromRGB(imagePixels[i+idx].rgb) === b)
+      }, true)
+      if (isSeparatorStart) {
+        separatorsIndexes.push(i)
+      }
+    }
+
+    // Get bytes groups
+    const bytesGroups = []
+    separatorsIndexes.forEach((_, idx) => {
+      if (!idx) {
+        const buffGroup = imagePixels.slice(0, separatorsIndexes[0]).map(p => this.getByteFromRGB(p.rgb))
+        bytesGroups.push(buffGroup)
+        return
+      }
+      const buffGroup = imagePixels.slice(separatorsIndexes[idx-1]+this._separationBytes.length, separatorsIndexes[idx]).map(p => this.getByteFromRGB(p.rgb))
+      bytesGroups.push(buffGroup)
+    })
+
+    return bytesGroups
+  }
+
   async saveFileInImage ({ imageUrl, fileData }) {
 
     // Render image in canvas
@@ -239,66 +287,19 @@ class ImagesContentManager {
 
     // Clear image pixels
     const imagePixels = canvasManager.getPixels()
-    const cleanImagePixels = imagePixels.map(p => ({ ...p, rgb: this.cleanLastBitsFromRGB(p.rgb) }))
 
     // Save size
     const fileSizeInBytes = numberToBytes(fileData.file.size)
     const fileTypeInBytes = stringToBytes(fileData.file.name.split('.').pop())
-    let pixelCounter = 0
-    for (let i=0; i<fileSizeInBytes.length; i++) {
-      cleanImagePixels[pixelCounter].rgb = this.saveByteInRGB({ rgb: cleanImagePixels[pixelCounter].rgb, byte: fileSizeInBytes[i] })
-      pixelCounter++
-    }
-
-    // Add separation bits
-    cleanImagePixels[pixelCounter].rgb = this.saveByteInRGB({ rgb: cleanImagePixels[pixelCounter].rgb, byte: 11 })
-    pixelCounter++
-    cleanImagePixels[pixelCounter].rgb = this.saveByteInRGB({ rgb: cleanImagePixels[pixelCounter].rgb, byte: 22 })
-    pixelCounter++
-    cleanImagePixels[pixelCounter].rgb = this.saveByteInRGB({ rgb: cleanImagePixels[pixelCounter].rgb, byte: 33 })
-    pixelCounter++
-    cleanImagePixels[pixelCounter].rgb = this.saveByteInRGB({ rgb: cleanImagePixels[pixelCounter].rgb, byte: 22 })
-    pixelCounter++
-    cleanImagePixels[pixelCounter].rgb = this.saveByteInRGB({ rgb: cleanImagePixels[pixelCounter].rgb, byte: 11 })
-    pixelCounter++
     
-    // Save file type
-    for (let i=0; i<fileTypeInBytes.length; i++) {
-      cleanImagePixels[pixelCounter].rgb = this.saveByteInRGB({ rgb: cleanImagePixels[pixelCounter].rgb, byte: fileTypeInBytes[i] })
-      pixelCounter++
-    }
-
-    // Add separation bits
-    cleanImagePixels[pixelCounter].rgb = this.saveByteInRGB({ rgb: cleanImagePixels[pixelCounter].rgb, byte: 11 })
-    pixelCounter++
-    cleanImagePixels[pixelCounter].rgb = this.saveByteInRGB({ rgb: cleanImagePixels[pixelCounter].rgb, byte: 22 })
-    pixelCounter++
-    cleanImagePixels[pixelCounter].rgb = this.saveByteInRGB({ rgb: cleanImagePixels[pixelCounter].rgb, byte: 33 })
-    pixelCounter++
-    cleanImagePixels[pixelCounter].rgb = this.saveByteInRGB({ rgb: cleanImagePixels[pixelCounter].rgb, byte: 22 })
-    pixelCounter++
-    cleanImagePixels[pixelCounter].rgb = this.saveByteInRGB({ rgb: cleanImagePixels[pixelCounter].rgb, byte: 11 })
-    pixelCounter++
-
-    // Save file content
-    for (let i=0; i<fileData.bytes.length; i++) {
-      cleanImagePixels[pixelCounter].rgb = this.saveByteInRGB({ rgb: cleanImagePixels[pixelCounter].rgb, byte: fileData.bytes[i] })
-      pixelCounter++
-    }
-
-    // Add separation bits
-    cleanImagePixels[pixelCounter].rgb = this.saveByteInRGB({ rgb: cleanImagePixels[pixelCounter].rgb, byte: 11 })
-    pixelCounter++
-    cleanImagePixels[pixelCounter].rgb = this.saveByteInRGB({ rgb: cleanImagePixels[pixelCounter].rgb, byte: 22 })
-    pixelCounter++
-    cleanImagePixels[pixelCounter].rgb = this.saveByteInRGB({ rgb: cleanImagePixels[pixelCounter].rgb, byte: 33 })
-    pixelCounter++
-    cleanImagePixels[pixelCounter].rgb = this.saveByteInRGB({ rgb: cleanImagePixels[pixelCounter].rgb, byte: 22 })
-    pixelCounter++
-    cleanImagePixels[pixelCounter].rgb = this.saveByteInRGB({ rgb: cleanImagePixels[pixelCounter].rgb, byte: 11 })
+    // Update pixels
+    const updatedPixels = this.saveBytesGroupsToPixels({
+      bytesGroups: [fileSizeInBytes, fileTypeInBytes, fileData.bytes],
+      pixels: imagePixels
+    })
 
     // Update canvas
-    canvasManager.updatePixels(cleanImagePixels)
+    canvasManager.updatePixels(updatedPixels)
 
     // Download image
     canvasManager.downloadImage()
@@ -313,30 +314,23 @@ class ImagesContentManager {
     await canvasManager.drawImage({ imageUrl })
     const imagePixels = canvasManager.getPixels()
 
-    // Find separators indexes
-    let separatorsIndexes = []
-    for (let i=0; i<(imagePixels.length-5); i++) {
-      if (this.getByteFromRGB(imagePixels[i].rgb) === 11 && this.getByteFromRGB(imagePixels[i+1].rgb) === 22 && this.getByteFromRGB(imagePixels[i+2].rgb) === 33 && this.getByteFromRGB(imagePixels[i+3].rgb) === 22 && this.getByteFromRGB(imagePixels[i+4].rgb) === 11) {
-        separatorsIndexes.push(i)
-      }
-    }
-    
-    // Get file size
-    const fileSizeBytes = imagePixels.slice(0, separatorsIndexes[0]).map(p => this.getByteFromRGB(p.rgb))
-    const fileSize = fromBytesToNumber(fileSizeBytes)
+    // Extract content from pixels
+    const bytesGroups = this.extractBytesGroupsFromPixels(imagePixels)
+    const fileSize = fromBytesToNumber(bytesGroups[0])
+    const fileType = bytesToString(bytesGroups[1])
+    const fileContentBytes = bytesGroups[2]
 
-    // Get file type
-    const fileTypeBytes = imagePixels.slice(separatorsIndexes[0]+5, separatorsIndexes[1]).map(p => this.getByteFromRGB(p.rgb))
-    const fileType = bytesToString(fileTypeBytes)
-    
     // Download file
-    const fileContentBytes = imagePixels.slice(separatorsIndexes[1]+5, separatorsIndexes[2]).map(p => this.getByteFromRGB(p.rgb))
+    if (fileSize !== fileContentBytes.length) {
+      alert('Image content is corrupted')
+      throw new Error('File size does not match')
+    }
     const fileManager = new FilesManager()
     fileManager.downloadFileFromBuffer({
       fileBuffer: byteArrayToArrayBuffer(fileContentBytes),
       fileName: 'file.'+fileType
     })
-    
+
   }
 
 }
