@@ -198,27 +198,40 @@ async function extractFileFromImage ({ imageUrl }) {
 
 }
 
-function requestFile ({ extractBytes } = {}) {
+function extractFileContent (file) {
+  return new Promise((resolve, reject) => {
+    const fileUrl = URL.createObjectURL(file);
+    if (!file) {
+      reject('No file selected');
+    }
+    const fileReader = new FileReader();
+    fileReader.onload = function() {
+      const arrayBuffer = this.result;
+      const bytes = new Uint8Array(arrayBuffer);
+      resolve({ fileUrl, bytes, buffer: arrayBuffer });
+    };
+    fileReader.readAsArrayBuffer(file);
+  }) 
+}
+
+function requestFile ({ extractBytes, acceptedFormats } = {}) {
   return new Promise((resolve, reject) => {
     const inputElement = document.createElement('input');
     inputElement.type = 'file';
-    // inputElement.accept = 'image/*';
-    inputElement.onchange = () => {
+    if (acceptedFormats) {
+      inputElement.accept = 'image/*';
+    }
+    inputElement.onchange = async () => {
       const file = inputElement.files[0];
-      const fileUrl = URL.createObjectURL(file);
       if (!file) {
         reject('No file selected');
       }
-      if (!!extractBytes) {
-        const fileReader = new FileReader();
-        fileReader.onload = function() {
-          const arrayBuffer = this.result;
-          const bytes = new Uint8Array(arrayBuffer);
-          resolve({ file, fileUrl, bytes, buffer: arrayBuffer });
-        };
-        fileReader.readAsArrayBuffer(file);
-      } else {
+      if (!extractBytes) {
+        const fileUrl = URL.createObjectURL(file);
         resolve({ file, fileUrl });
+      } else {
+        const { fileUrl, bytes, buffer } = await extractFileContent(file)
+        resolve({ file, fileUrl, bytes, buffer });
       }
     }
     inputElement.click();
@@ -233,6 +246,30 @@ function downloadFileFromBuffer ({ fileName, fileBuffer }) {
   a.click();
 }
 
+function loadImageFromUrl (imageUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      resolve(img)
+    };
+    img.src = imageUrl
+  })
+}
+
+function mostCommonNumber(arr) {
+  const freq = {};
+  let maxFreq = 0;
+  let mostCommon = null;
+  for (const num of arr) {
+    freq[num] = (freq[num] || 0) + 1;
+    if (freq[num] > maxFreq) {
+      maxFreq = freq[num];
+      mostCommon = num;
+    }
+  }
+  return mostCommon;
+}
+
 class CanvasManager {
 
   constructor () {
@@ -243,14 +280,14 @@ class CanvasManager {
     return this._canvasElement
   }
 
-  drawImage ({ imageUrl, squareSize }) {
+  drawImage ({ imageUrl, squareSize, width, height }) {
     return new Promise((res, rej) => {
       const canvasContext = this._canvasElement.getContext('2d');
       const img = new Image();
       img.onload = () => {
-        const ratio = img.width / img.height
-        let buffWidth = img.width
-        let buffHeight = img.height
+        let buffWidth = width || img.width
+        let buffHeight = height || img.height
+        const ratio = buffWidth / buffHeight
         if (!!squareSize && (buffWidth * buffHeight) < squareSize) {
           while ((buffWidth * buffHeight) < squareSize) {
             buffWidth = buffWidth * 1.1
@@ -321,6 +358,179 @@ class CanvasManager {
 
 }
 
+class HHImage {
+
+  constructor ({ imageUrl, hhImageUrl, file }) {
+    if (!!hhImageUrl) {
+      this._hhImageUrl = hhImageUrl
+    } else if (!!imageUrl || !!file) {
+      this._imageUrl = imageUrl
+      this._file = file
+    } else {
+      throw new Error('No image or file provided')
+    }
+    this._pixelsRedundancy = 3
+    this._separatorBytes = [ 11, 22, 33, 22, 11 ]
+    this._canvasManager
+  }
+
+  async _ensureCanvasContent () {
+    if (!!this._canvasManager) { return }
+    this._canvasManager = new CanvasManager()
+    if (!!this._hhImageUrl) {
+      await this._canvasManager.drawImage({ imageUrl: this._hhImageUrl })
+      return
+    }
+    const { width: imgWidth, height: imgHeight } = await loadImageFromUrl(this._imageUrl)
+    const imagePixelsNumber = imgWidth * imgHeight
+    const expectedPixelsNumber = ( this._file.size + this._separatorBytes.length * 10 ) * this._pixelsRedundancy
+    if (expectedPixelsNumber < imagePixelsNumber) {
+      await this._canvasManager.drawImage({ imageUrl: this._imageUrl })
+      return
+    }
+    const widthIsLower = imgWidth < imgHeight
+    const ratio = widthIsLower ? (imgHeight / imgWidth) : (imgWidth / imgHeight)
+    const lowerSideValue = Math.ceil(Math.sqrt(expectedPixelsNumber))
+    const higherSideValue = Math.ceil(lowerSideValue * ratio)
+    await this._canvasManager.drawImage({
+      imageUrl: this._imageUrl,
+      width: widthIsLower ? lowerSideValue : higherSideValue,
+      height: widthIsLower ? higherSideValue : lowerSideValue
+    })
+  }
+
+  _saveBytesGroupsInPixels (bytesGroups) {
+
+    // Add redundancy
+    const bytesGroupsWithRedundancy = bytesGroups.map(bg => {
+      return [].slice.call(bg).map(b => Array(this._pixelsRedundancy).fill(b)).flat()
+    })
+    const separatorsWithRedundancy = this._separatorBytes.map(s => Array(this._pixelsRedundancy).fill(s)).flat()
+
+    // Get pixels
+    const imagePixels = this._canvasManager.getPixels()
+
+    // Clear pixels
+    let cleanPixels = imagePixels.slice().map(p => ({ ...p, rgb: cleanLastBitsFromRGB(p.rgb) }))
+
+    // Save bytes groups
+    let pixelCounter = 0
+    bytesGroupsWithRedundancy.forEach(bytes => {
+      for (let i=0; i<bytes.length; i++) {
+        cleanPixels[pixelCounter].rgb = saveByteInRGB({ rgb: cleanPixels[pixelCounter].rgb, byte: bytes[i] })
+        pixelCounter++
+      }
+      separatorsWithRedundancy.forEach(b => {
+        cleanPixels[pixelCounter].rgb = saveByteInRGB({ rgb: cleanPixels[pixelCounter].rgb, byte: b })
+        pixelCounter++
+      })
+    })
+
+    // Save pixels
+    this._canvasManager.updatePixels(cleanPixels)
+  }
+
+  _getBytesGroupsFromPixels () {
+      
+    // Get pixels
+    const imagePixels = this._canvasManager.getPixels()
+
+    // Get bytes from pixels
+    const rawBytes = imagePixels.map(p => getByteFromRGB(p.rgb))
+    const rawBytesWithoutExtraBytes = rawBytes.slice(0, rawBytes.length - rawBytes.length % this._pixelsRedundancy)
+    const bytesWithoutRedundancy = []
+    for (let i=0; i<rawBytesWithoutExtraBytes.length; i+=this._pixelsRedundancy) {
+      const validBytes = rawBytesWithoutExtraBytes.slice(i, i+this._pixelsRedundancy).reduce((acc, b) => {
+        return acc && (b === rawBytesWithoutExtraBytes[i])
+      } , true)
+      if (validBytes) {
+        bytesWithoutRedundancy.push(rawBytesWithoutExtraBytes[i])
+      } else {
+        bytesWithoutRedundancy.push(mostCommonNumber(rawBytesWithoutExtraBytes.slice(i, i+this._pixelsRedundancy)))
+      }
+    }
+
+    // Find separators indexes
+    let separatorsIndexes = []
+    for (let i=0; i<(bytesWithoutRedundancy.length-this._separatorBytes.length); i++) {
+      const isSeparatorStart = this._separatorBytes.reduce((acc, b, idx) => {
+        return acc && (bytesWithoutRedundancy[i+idx] === b)
+      }, true)
+      if (isSeparatorStart) {
+        separatorsIndexes.push(i)
+      }
+    }
+
+    // Get bytes groups
+    const bytesGroups = []
+    separatorsIndexes.forEach((_, idx) => {
+      if (!idx) {
+        const buffGroup = bytesWithoutRedundancy.slice(0, separatorsIndexes[0])
+        bytesGroups.push(buffGroup)
+        return
+      }
+      const buffGroup = bytesWithoutRedundancy.slice(separatorsIndexes[idx-1]+separationBytes.length, separatorsIndexes[idx])
+      bytesGroups.push(buffGroup)
+    })
+
+    // Resolve bytes groups
+    return bytesGroups
+  
+  }
+
+  async downloadHHImage () {
+
+    // Ensure canvas content
+    await this._ensureCanvasContent()
+
+    // Download image if alread hh image
+    if (!!this._hhImageUrl) {
+      this._canvasManager.downloadImage()
+      return
+    }
+
+    // Get metadata bytes
+    const fileSizeInBytes = numberToBytes(this._file.size)
+    const fileTypeInBytes = stringToBytes(this._file.name.split('.').pop())
+
+    // Get file content bytes
+    const { bytes } = await extractFileContent(this._file)
+
+    // Save bytes
+    this._saveBytesGroupsInPixels([fileSizeInBytes, fileTypeInBytes, bytes])
+
+    // Download file
+    this._canvasManager.downloadImage()
+
+  }
+
+  async downloadHiddenFile () {
+
+    // Ensure canvas content
+    await this._ensureCanvasContent()
+
+    // Get bytes groups
+    const bytesGroups = this._getBytesGroupsFromPixels()
+    const fileSize = fromBytesToNumber(bytesGroups[0])
+    const fileType = bytesToString(bytesGroups[1])
+    const fileContentBytes = bytesGroups[2]
+
+    // Ensure file is not corrupted
+    if (fileSize !== fileContentBytes.length) {
+      alert('Image content is corrupted')
+      throw new Error('File size does not match')
+    }
+
+    // Download file
+    downloadFileFromBuffer({
+      fileBuffer: byteArrayToArrayBuffer(fileContentBytes),
+      fileName: 'secret-file.'+fileType
+    })
+
+  }
+
+}
+
 try {
 
   // Setup elements
@@ -340,7 +550,7 @@ try {
     }
   }
   sourceImageContainer.addEventListener('click', async () => {
-    const { fileUrl } = await requestFile()
+    const { fileUrl } = await requestFile({ acceptedFormats: 'image/*' })
     originalImageUrl = fileUrl
     sourceImageContainer.innerHTML = ''
     sourceImageContainer.style.background = 'url('+fileUrl+') no-repeat center center'
@@ -355,16 +565,23 @@ try {
   })
   downloadHHFile.addEventListener('click', async () => {
     if (!originalImageUrl || !fileToSaveData) { return }
-    await saveFileInImage({
-      imageUrl: originalImageUrl,
-      fileData: fileToSaveData
-    })
+    console.log('Downloading HH file...')
+    downloadHHFile.children[0].innerText = 'Processing content, this may take a several seconds...'
+    setTimeout(async () => {
+      const hhImage = new HHImage({ imageUrl: originalImageUrl, file: fileToSaveData.file })
+      await hhImage.downloadHHImage()
+      downloadHHFile.children[0].innerText = 'Download image'
+    }, 10)
   })
   extractContentBtn.addEventListener('click', async () => {
     const { fileUrl } = await requestFile()
-    extractFileFromImage({
-      imageUrl: fileUrl
-    })
+    console.log('Extracting content...')
+    extractContentBtn.children[0].innerText = 'Extracting content, this may take a several seconds...'
+    setTimeout(async () => {
+      const hhImage = new HHImage({ hhImageUrl: fileUrl })
+      await hhImage.downloadHiddenFile()
+      extractContentBtn.children[0].innerText = 'Upload a new image to extract content'
+    }, 10)
   })
 
 } catch (err) {}
