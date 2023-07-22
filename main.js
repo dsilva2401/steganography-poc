@@ -270,6 +270,26 @@ function mostCommonNumber(arr) {
   return mostCommon;
 }
 
+function encryptBytes ({keyBytes, targetBytes}) {
+  const keyBytesLength = keyBytes.length
+  const targetBytesLength = targetBytes.length
+  const encryptedBytes = []
+  for (let i=0; i<targetBytesLength; i++) {
+    encryptedBytes.push(targetBytes[i] ^ keyBytes[i%keyBytesLength])
+  }
+  return encryptedBytes
+}
+
+function decryptBytes ({keyBytes, targetBytes}) {
+  const keyBytesLength = keyBytes.length
+  const targetBytesLength = targetBytes.length
+  const decryptedBytes = []
+  for (let i=0; i<targetBytesLength; i++) {
+    decryptedBytes.push(targetBytes[i] ^ keyBytes[i%keyBytesLength])
+  }
+  return decryptedBytes
+}
+
 class CanvasManager {
 
   constructor () {
@@ -478,7 +498,7 @@ class HHImage {
   
   }
 
-  async downloadHHImage () {
+  async downloadHHImage ({ keyToEncrypt }) {
 
     // Ensure canvas content
     await this._ensureCanvasContent()
@@ -496,24 +516,34 @@ class HHImage {
     // Get file content bytes
     const { bytes } = await extractFileContent(this._file)
 
+    // Get bytes from key
+    const keyBytes = stringToBytes(keyToEncrypt)
+
     // Save bytes
-    this._saveBytesGroupsInPixels([fileSizeInBytes, fileTypeInBytes, bytes])
+    this._saveBytesGroupsInPixels([
+      encryptBytes({ keyBytes, targetBytes: fileSizeInBytes }),
+      encryptBytes({ keyBytes, targetBytes: fileTypeInBytes }),
+      encryptBytes({ keyBytes, targetBytes: bytes })
+    ])
 
     // Download file
     this._canvasManager.downloadImage()
 
   }
 
-  async downloadHiddenFile () {
+  async downloadHiddenFile ({ keyToDecrypt }) {
 
     // Ensure canvas content
     await this._ensureCanvasContent()
 
+    // Get bytes from key
+    const keyBytes = stringToBytes(keyToDecrypt)
+
     // Get bytes groups
     const bytesGroups = this._getBytesGroupsFromPixels()
-    const fileSize = fromBytesToNumber(bytesGroups[0])
-    const fileType = bytesToString(bytesGroups[1])
-    const fileContentBytes = bytesGroups[2]
+    const fileSize = fromBytesToNumber( decryptBytes({ keyBytes, targetBytes: bytesGroups[0] }) )
+    const fileType = bytesToString( decryptBytes({ keyBytes, targetBytes: bytesGroups[1] }) )
+    const fileContentBytes = decryptBytes({ keyBytes, targetBytes: bytesGroups[2] })
 
     // Ensure file is not corrupted
     if (fileSize !== fileContentBytes.length) {
@@ -547,6 +577,7 @@ try {
   function checkIfHHFileConditionsAreMet () {
     if (!!originalImageUrl && !!fileToSaveData) {
       downloadHHFile.style.opacity = 1
+      downloadHHFile.style.cursor = 'pointer'
     }
   }
   sourceImageContainer.addEventListener('click', async () => {
@@ -565,21 +596,23 @@ try {
   })
   downloadHHFile.addEventListener('click', async () => {
     if (!originalImageUrl || !fileToSaveData) { return }
+    const keyToEncrypt = prompt('Enter a key to protect your') || '-'
     console.log('Downloading HH file...')
     downloadHHFile.children[0].innerText = 'Processing content, this may take a several seconds...'
     setTimeout(async () => {
       const hhImage = new HHImage({ imageUrl: originalImageUrl, file: fileToSaveData.file })
-      await hhImage.downloadHHImage()
+      await hhImage.downloadHHImage({ keyToEncrypt })
       downloadHHFile.children[0].innerText = 'Download image'
     }, 10)
   })
   extractContentBtn.addEventListener('click', async () => {
     const { fileUrl } = await requestFile()
+    const keyToDecrypt = prompt('Enter the key to recover the file') || '-'
     console.log('Extracting content...')
     extractContentBtn.children[0].innerText = 'Extracting content, this may take a several seconds...'
     setTimeout(async () => {
       const hhImage = new HHImage({ hhImageUrl: fileUrl })
-      await hhImage.downloadHiddenFile()
+      await hhImage.downloadHiddenFile({ keyToDecrypt })
       extractContentBtn.children[0].innerText = 'Upload a new image to extract content'
     }, 10)
   })
