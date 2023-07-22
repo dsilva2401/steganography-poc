@@ -527,7 +527,7 @@ class HHImage {
     ])
 
     // Download file
-    this._canvasManager.downloadImage()
+    this._canvasManager.downloadImage('hh-image')
 
   }
 
@@ -573,6 +573,10 @@ try {
   let originalImageUrl
   let fileToSaveData
 
+  // Setup gtag
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){window.dataLayer.push(arguments);}
+
   // Setup events
   function checkIfHHFileConditionsAreMet () {
     if (!!originalImageUrl && !!fileToSaveData) {
@@ -581,39 +585,60 @@ try {
     }
   }
   sourceImageContainer.addEventListener('click', async () => {
+    gtag('event', 'click.openContainerImageSelector', {});
     const { fileUrl } = await requestFile({ acceptedFormats: 'image/*' })
     originalImageUrl = fileUrl
     sourceImageContainer.innerHTML = ''
     sourceImageContainer.style.background = 'url('+fileUrl+') no-repeat center center'
     sourceImageContainer.style.backgroundSize = 'contain'
+    gtag('event', 'click.containerImageSelected', {});
     checkIfHHFileConditionsAreMet()
   })
   sourceFileContainer.addEventListener('click', async () => {
+    gtag('event', 'click.openFileToHideSelector', {});
     const fileData = await requestFile({ extractBytes: true })
     sourceFileContainer.innerText = 'File: '+fileData.file.name
     fileToSaveData = fileData
+    gtag('event', 'click.fileToHideSelected', {
+      fileSize: fileData.file.size,
+    });
     checkIfHHFileConditionsAreMet()
   })
   downloadHHFile.addEventListener('click', async () => {
     if (!originalImageUrl || !fileToSaveData) { return }
+    gtag('event', 'click.downloadHHImage', {});
     const keyToEncrypt = prompt('Enter a key to protect your') || '-'
     console.log('Downloading HH file...')
     downloadHHFile.children[0].innerText = 'Processing content, this may take a several seconds...'
     setTimeout(async () => {
-      const hhImage = new HHImage({ imageUrl: originalImageUrl, file: fileToSaveData.file })
-      await hhImage.downloadHHImage({ keyToEncrypt })
-      downloadHHFile.children[0].innerText = 'Download image'
+      try {
+        const hhImage = new HHImage({ imageUrl: originalImageUrl, file: fileToSaveData.file })
+        gtag('event', 'event.downloadHHImageStarted', {});
+        await hhImage.downloadHHImage({ keyToEncrypt })
+        gtag('event', 'event.downloadHHImageCompleted', {});
+        downloadHHFile.children[0].innerText = 'Download image'
+      } catch (err) {
+        gtag('event', 'event.downloadHHImageFailed', {});
+      }
     }, 10)
   })
   extractContentBtn.addEventListener('click', async () => {
+    gtag('event', 'click.extractFileFromHHImage', {});
     const { fileUrl } = await requestFile()
     const keyToDecrypt = prompt('Enter the key to recover the file') || '-'
     console.log('Extracting content...')
     extractContentBtn.children[0].innerText = 'Extracting content, this may take a several seconds...'
     setTimeout(async () => {
-      const hhImage = new HHImage({ hhImageUrl: fileUrl })
-      await hhImage.downloadHiddenFile({ keyToDecrypt })
-      extractContentBtn.children[0].innerText = 'Upload a new image to extract content'
+      try {
+        const hhImage = new HHImage({ hhImageUrl: fileUrl })
+        gtag('event', 'event.extractFileFromHHImageDownloadStarted', {});
+        await hhImage.downloadHiddenFile({ keyToDecrypt })
+        gtag('event', 'event.extractFileFromHHImageDownloadCompleted', {});
+        extractContentBtn.children[0].innerText = 'Upload a new image to extract content'
+      } catch (err) {
+        extractContentBtn.children[0].innerText = 'Upload a new image to extract content'
+        gtag('event', 'event.extractFileFromHHImageDownloadFailed', {});
+      }
     }, 10)
   })
 
